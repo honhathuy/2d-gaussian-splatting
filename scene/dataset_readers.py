@@ -131,13 +131,23 @@ def storePly(path, xyz, rgb):
 
 def readColmapSceneInfo(path, images, eval, llffhold=8):
     try:
-        cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
-        cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.bin")
+        if os.path.exists(os.path.join(path, "sparse/0", "images.bin")):
+            colmap_path = os.path.join(path, "sparse/0")
+        else:
+            colmap_path = os.path.join(path, "sparse")
+            
+        cameras_extrinsic_file = os.path.join(colmap_path, "images.bin")
+        cameras_intrinsic_file = os.path.join(colmap_path, "cameras.bin")
         cam_extrinsics = read_extrinsics_binary(cameras_extrinsic_file)
         cam_intrinsics = read_intrinsics_binary(cameras_intrinsic_file)
     except:
-        cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.txt")
-        cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.txt")
+        if os.path.exists(os.path.join(path, "sparse/0", "images.txt")):
+            colmap_path = os.path.join(path, "sparse/0")
+        else:
+            colmap_path = os.path.join(path, "sparse")
+            
+        cameras_extrinsic_file = os.path.join(colmap_path, "images.txt")
+        cameras_intrinsic_file = os.path.join(colmap_path, "cameras.txt")
         cam_extrinsics = read_extrinsics_text(cameras_extrinsic_file)
         cam_intrinsics = read_intrinsics_text(cameras_intrinsic_file)
 
@@ -153,10 +163,11 @@ def readColmapSceneInfo(path, images, eval, llffhold=8):
         test_cam_infos = []
 
     nerf_normalization = getNerfppNorm(train_cam_infos)
+    print(f'cameras extent: {nerf_normalization["radius"]}')
 
-    ply_path = os.path.join(path, "sparse/0/points3D.ply")
-    bin_path = os.path.join(path, "sparse/0/points3D.bin")
-    txt_path = os.path.join(path, "sparse/0/points3D.txt")
+    ply_path = os.path.join(colmap_path, "points3D.ply")
+    bin_path = os.path.join(colmap_path, "points3D.bin")
+    txt_path = os.path.join(colmap_path, "points3D.txt")
     if not os.path.exists(ply_path):
         print("Converting point3d.bin to .ply, will happen only the first time you open the scene.")
         try:
@@ -167,7 +178,13 @@ def readColmapSceneInfo(path, images, eval, llffhold=8):
     try:
         pcd = fetchPly(ply_path)
     except:
-        pcd = None
+        # pcd = None
+        try:
+            pcd = trimesh.load(ply_path)
+            point_id = np.random.choice(np.arange(len(pcd.vertices)), 1200000)
+            pcd = BasicPointCloud(points=pcd.vertices[point_id], colors=pcd.colors[point_id][:,:3].astype(np.float32)/255, normals=None)
+        except:
+            pcd = None
 
     scene_info = SceneInfo(point_cloud=pcd,
                            train_cameras=train_cam_infos,

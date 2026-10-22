@@ -1,0 +1,11 @@
+ffmpeg
+pillow
+typing_extensions
+open3d
+mediapy
+lpips
+scikit-image
+tqdm
+trimesh
+plyfile
+opencv-python
