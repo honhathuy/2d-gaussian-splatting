@@ -170,8 +170,11 @@ def colormap(img, cmap='jet'):
     fig.colorbar(im, ax=ax)
     fig.tight_layout()
     fig.canvas.draw()
-    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    try:
+        data = np.asarray(fig.canvas.buffer_rgba())[..., :3]
+    except AttributeError:
+        data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+        data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
     img = torch.from_numpy(data / 255.).float().permute(2,0,1)
     plt.close()
     return img
