@@ -50,7 +50,32 @@ def evaluate(model_paths):
 
             test_dir = Path(scene_dir) / "test"
 
-            for method in os.listdir(test_dir):
+            targets = []
+
+            # 1. Direct render_mesh_nvs output (scene_dir is .../mesh, renders in scene_dir/test/renders)
+            if (test_dir / "renders").exists() and (test_dir / "gt").exists():
+                method_name = Path(scene_dir).name
+                targets.append((method_name, test_dir / "renders", test_dir / "gt"))
+
+            # 2. Parent of render_mesh_nvs output (scene_dir is .../eval_results, containing mesh/test/renders)
+            if os.path.exists(scene_dir):
+                for sub in os.listdir(scene_dir):
+                    sub_path = Path(scene_dir) / sub
+                    if sub_path.is_dir() and (sub_path / "test" / "renders").exists() and (sub_path / "test" / "gt").exists():
+                        targets.append((sub, sub_path / "test" / "renders", sub_path / "test" / "gt"))
+
+            # 3. Standard 3DGS output (scene_dir/test/<method>/renders)
+            if test_dir.exists():
+                for method in os.listdir(test_dir):
+                    method_dir = test_dir / method
+                    if method_dir.is_dir() and (method_dir / "renders").exists() and (method_dir / "gt").exists():
+                        targets.append((method, method_dir / "renders", method_dir / "gt"))
+
+            if not targets:
+                print(f"No valid renders/gt folders found in {scene_dir}")
+                continue
+
+            for method, renders_dir, gt_dir in targets:
                 print("Method:", method)
 
                 full_dict[scene_dir][method] = {}
@@ -58,9 +83,6 @@ def evaluate(model_paths):
                 full_dict_polytopeonly[scene_dir][method] = {}
                 per_view_dict_polytopeonly[scene_dir][method] = {}
 
-                method_dir = test_dir / method
-                gt_dir = method_dir/ "gt"
-                renders_dir = method_dir / "renders"
                 renders, gts, image_names = readImages(renders_dir, gt_dir)
 
                 ssims = []
@@ -88,8 +110,10 @@ def evaluate(model_paths):
                 json.dump(full_dict[scene_dir], fp, indent=True)
             with open(scene_dir + "/per_view.json", 'w') as fp:
                 json.dump(per_view_dict[scene_dir], fp, indent=True)
-        except:
+        except Exception as e:
             print("Unable to compute metrics for model", scene_dir)
+            import traceback
+            traceback.print_exc()
 
 if __name__ == "__main__":
     device = torch.device("cuda:0")
